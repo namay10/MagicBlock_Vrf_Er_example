@@ -3,7 +3,8 @@ import { Program } from "@coral-xyz/anchor";
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { GetCommitmentSignature } from "@magicblock-labs/ephemeral-rollups-sdk";
 import { ErStateAccount } from "../target/types/er_state_account";
-
+const oracle_queue = new PublicKey("Cuj97ggrhhidhbu39TijNVqE74xvKJ69gDervRUXAxGh")
+const oracle_er_queue = new PublicKey("5hBR571xnXppuCPveTrctfTU7tJLSN94nq7kv7FRK5Tc")
 describe("er-state-account", () => {
   // Configure the client to use the local cluster.
   const provider = anchor.AnchorProvider.env();
@@ -12,7 +13,7 @@ describe("er-state-account", () => {
   const providerEphemeralRollup = new anchor.AnchorProvider(
     new anchor.web3.Connection(
       process.env.EPHEMERAL_PROVIDER_ENDPOINT ||
-        "https://devnet.magicblock.app/",
+      "https://devnet.magicblock.app/",
       {
         wsEndpoint:
           process.env.EPHEMERAL_WS_ENDPOINT || "wss://devnet.magicblock.app/",
@@ -25,21 +26,21 @@ describe("er-state-account", () => {
     "Ephemeral Rollup Connection: ",
     providerEphemeralRollup.connection.rpcEndpoint,
   );
+  console.log("local wallet: ", anchor.Wallet.local().publicKey);
   console.log(`Current SOL Public Key: ${anchor.Wallet.local().publicKey}`);
-
-  before(async function () {
-    const balance = await provider.connection.getBalance(
-      anchor.Wallet.local().publicKey,
-    );
-    console.log("Current balance is", balance / LAMPORTS_PER_SOL, " SOL", "\n");
-  });
-
   const program = anchor.workspace.erStateAccount as Program<ErStateAccount>;
 
   const userAccount = anchor.web3.PublicKey.findProgramAddressSync(
     [Buffer.from("user"), anchor.Wallet.local().publicKey.toBuffer()],
     program.programId,
   )[0];
+  before(async function () {
+    const balance = await provider.connection.getBalance(
+      anchor.Wallet.local().publicKey,
+    );
+    console.log("user account: ", userAccount);
+    console.log("Current balance is", balance / LAMPORTS_PER_SOL, " SOL", "\n");
+  });
 
   it("Is initialized!", async () => {
     // Add your test here.
@@ -54,16 +55,19 @@ describe("er-state-account", () => {
     console.log("User Account initialized: ", tx);
   });
 
-  it("Update State!", async () => {
-    const tx = await program.methods
-      .update(new anchor.BN(42))
-      .accountsPartial({
-        user: anchor.Wallet.local().publicKey,
-        userAccount: userAccount,
-      })
-      .rpc();
-    console.log("\nUser Account State Updated: ", tx);
-  });
+  // it("Update State! on base layer", async () => {
+
+  //   const randomness = program.methods.requestRandomness(3).accountsPartial({
+  //     user: anchor.Wallet.local().publicKey,
+  //     userAccount: userAccount,
+  //     oracleQueue: oracle_queue,
+  //   }).rpc({ skipPreflight: true });
+  //   console.log("Randomness requested: ", randomness);
+
+  //   const user_account_info = await program.account.userAccount.fetch(userAccount);
+
+  //   console.log("\nUser Account State Updated with rand no: ", user_account_info.data);
+  // });
 
   it("Delegate to Ephemeral Rollup!", async () => {
     let tx = await program.methods
@@ -80,13 +84,18 @@ describe("er-state-account", () => {
   });
 
   it("Update State and Commit to Base Layer!", async () => {
-    let tx = await program.methods
-      .updateCommit(new anchor.BN(43))
-      .accountsPartial({
-        user: providerEphemeralRollup.wallet.publicKey,
-        userAccount: userAccount,
-      })
-      .transaction();
+    // let tx = await program.methods
+    //   .updateCommit(new anchor.BN(43))
+    //   .accountsPartial({
+    //     user: providerEphemeralRollup.wallet.publicKey,
+    //     userAccount: userAccount,
+    //   })
+    //   .transaction();
+    let tx = await program.methods.requestRandomness(4).accountsPartial({
+      user: anchor.Wallet.local().publicKey,
+      userAccount: userAccount,
+      oracleQueue: oracle_er_queue,
+    }).transaction();
 
     tx.feePayer = providerEphemeralRollup.wallet.publicKey;
 
@@ -138,17 +147,17 @@ describe("er-state-account", () => {
     console.log("\nUser Account Undelegated: ", txHash);
   });
 
-  it("Update State!", async () => {
-    let tx = await program.methods
-      .update(new anchor.BN(45))
-      .accountsPartial({
-        user: anchor.Wallet.local().publicKey,
-        userAccount: userAccount,
-      })
-      .rpc();
+  // it("Update State!", async () => {
+  //   let tx = await program.methods
+  //     .update(new anchor.BN(45))
+  //     .accountsPartial({
+  //       user: anchor.Wallet.local().publicKey,
+  //       userAccount: userAccount,
+  //     })
+  //     .rpc();
 
-    console.log("\nUser Account State Updated: ", tx);
-  });
+  //   console.log("\nUser Account State Updated: ", tx);
+  // });
 
   it("Close Account!", async () => {
     const tx = await program.methods
