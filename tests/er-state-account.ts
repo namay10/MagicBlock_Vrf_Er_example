@@ -55,21 +55,21 @@ describe("er-state-account", () => {
     console.log("User Account initialized: ", tx);
   });
 
-  // it("Update State! on base layer", async () => {
+  it("Update State! on base layer", async () => {
 
-  //   const randomness = program.methods.requestRandomness(3).accountsPartial({
-  //     user: anchor.Wallet.local().publicKey,
-  //     userAccount: userAccount,
-  //     oracleQueue: oracle_queue,
-  //   }).rpc({ skipPreflight: true });
-  //   console.log("Randomness requested: ", randomness);
-  // console.log("Waiting for VRF callback...");
-  //   await new Promise((resolve) => setTimeout(resolve, 10000));
+    const randomness = program.methods.requestRandomness(3).accountsPartial({
+      user: anchor.Wallet.local().publicKey,
+      userAccount: userAccount,
+      oracleQueue: oracle_queue,
+    }).rpc({ skipPreflight: true });
+    console.log("Randomness requested: ", randomness);
+    console.log("Waiting for VRF callback...");
+    await new Promise((resolve) => setTimeout(resolve, 10000));
 
-  //   const user_account_info = await program.account.userAccount.fetch(userAccount);
+    const user_account_info = await program.account.userAccount.fetch(userAccount);
 
-  //   console.log("\nUser Account State Updated with rand no: ", user_account_info.data);
-  // });
+    console.log("\nUser Account State Updated with rand no: ", user_account_info.data);
+  });
 
   it("Delegate to Ephemeral Rollup!", async () => {
     let tx = await program.methods
