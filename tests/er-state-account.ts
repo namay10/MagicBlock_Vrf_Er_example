@@ -29,7 +29,7 @@ describe("er-state-account", () => {
   console.log("local wallet: ", anchor.Wallet.local().publicKey);
   console.log(`Current SOL Public Key: ${anchor.Wallet.local().publicKey}`);
   const program = anchor.workspace.erStateAccount as Program<ErStateAccount>;
-
+  const ephemeral_program = new anchor.Program(program.idl, providerEphemeralRollup) as typeof program;
   const userAccount = anchor.web3.PublicKey.findProgramAddressSync(
     [Buffer.from("user"), anchor.Wallet.local().publicKey.toBuffer()],
     program.programId,
@@ -63,6 +63,8 @@ describe("er-state-account", () => {
   //     oracleQueue: oracle_queue,
   //   }).rpc({ skipPreflight: true });
   //   console.log("Randomness requested: ", randomness);
+  // console.log("Waiting for VRF callback...");
+  //   await new Promise((resolve) => setTimeout(resolve, 10000));
 
   //   const user_account_info = await program.account.userAccount.fetch(userAccount);
 
@@ -83,19 +85,44 @@ describe("er-state-account", () => {
     console.log("\nUser Account Delegated to Ephemeral Rollup: ", tx);
   });
 
-  it("Update State and Commit to Base Layer!", async () => {
-    // let tx = await program.methods
-    //   .updateCommit(new anchor.BN(43))
-    //   .accountsPartial({
-    //     user: providerEphemeralRollup.wallet.publicKey,
-    //     userAccount: userAccount,
-    //   })
-    //   .transaction();
-    let tx = await program.methods.requestRandomness(4).accountsPartial({
-      user: anchor.Wallet.local().publicKey,
-      userAccount: userAccount,
-      oracleQueue: oracle_er_queue,
+  it("Execute VRF Delegated", async () => {
+    let tx = await ephemeral_program.methods.requestRandomness(0).accountsPartial({
+      oracleQueue: oracle_er_queue
     }).transaction();
+    tx.feePayer = providerEphemeralRollup.wallet.publicKey;
+
+    tx.recentBlockhash = (
+      await providerEphemeralRollup.connection.getLatestBlockhash()
+    ).blockhash;
+    tx = await providerEphemeralRollup.wallet.signTransaction(tx);
+    const txHash = await providerEphemeralRollup.sendAndConfirm(tx, [], {
+      skipPreflight: false,
+    });
+    console.log("Your transaction signature", tx);
+
+
+
+    console.log("Waiting for VRF callback...");
+    await new Promise((resolve) => setTimeout(resolve, 10000));
+    let account = await providerEphemeralRollup.connection.getAccountInfo(
+      userAccount,
+    );
+    // console.log("User Account Info: ", account);
+
+    const randomValue = new anchor.BN(account.data.slice(40, 48), "le");
+    console.log("Random value: ", randomValue.toString());
+
+  });
+
+  it("Update State and Commit to Base Layer!", async () => {
+    let tx = await program.methods
+      .updateCommit(new anchor.BN(43))
+      .accountsPartial({
+        user: providerEphemeralRollup.wallet.publicKey,
+        userAccount: userAccount,
+      })
+      .transaction();
+
 
     tx.feePayer = providerEphemeralRollup.wallet.publicKey;
 

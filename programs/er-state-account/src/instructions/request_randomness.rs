@@ -17,7 +17,8 @@ pub struct RequestRandomness<'info> {
     )]
     pub user_account: Account<'info, UserAccount>,
     /// CHECK: The oracle queue
-    #[account(mut, address = ephemeral_vrf_sdk::consts::DEFAULT_QUEUE)]
+    #[account(mut, address = ephemeral_vrf_sdk::consts::DEFAULT_EPHEMERAL_QUEUE)]
+    // DEFAULT_QUEUE for vrf without ephemeral.
     pub oracle_queue: AccountInfo<'info>,
 }
 impl<'info> RequestRandomness<'info> {
